@@ -1,0 +1,24 @@
+# --- secrets: NEVER commit these ---
+.env
+*.key
+*.token
+secrets/
+
+# --- W&B / training run artifacts ---
+wandb/
+outputs/
+checkpoints/
+runs/
+
+# --- model weights (push these to HF Hub, not git) ---
+*.gguf
+*.safetensors
+*.bin
+lora_model/
+merged_model/
+
+# --- python / notebook cruft ---
+__pycache__/
+*.pyc
+.venv/
+.ipynb_checkpoints/

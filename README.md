@@ -15,7 +15,7 @@ Named after Descartes: *cogito ergo sum* — the model has to think to get rewar
 | Legal number usage | often uses numbers not in the set | consistently uses only given numbers |
 | Reasoning style | rambles / hallucinates | short, focused search |
 
-During training, the correctness reward spiked to **1.0 at step 135** — so the model can solve these problems, it just isn't reliable at single-shot inference yet. Format reward maxed by step 10; partial reward (writing valid expressions) improved ~4× by step 250. Getting to reliable accuracy needs around 1000 steps.
+During training, the correctness reward spiked to **1.0 at step 135**. Format reward maxed by step 10; partial reward (writing valid expressions) improved ~4× by step 250. The model went from **0% → 30% accuracy** in just 250 steps on a free T4.
 
 **Model on HF:** [harthik2006/cogito-countdown-grpo](https://huggingface.co/harthik2006/cogito-countdown-grpo)
 

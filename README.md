@@ -19,6 +19,10 @@ During training, the correctness reward spiked to **1.0 at step 135**. Format re
 
 **Model on HF:** [harthik2006/cogito-countdown-grpo](https://huggingface.co/harthik2006/cogito-countdown-grpo)
 
+### Reward curve (W&B)
+
+![Correctness reward curve](assets/reward_curve.png)
+
 ---
 
 ## How GRPO works

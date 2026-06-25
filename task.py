@@ -1,16 +1,7 @@
-"""task.py — Countdown problem generation, prompt template, and answer checking.
+"""Countdown game: generate problems, prompt template, and answer checker.
 
-The Countdown numbers game: given a small set of numbers and a target, find an
-arithmetic expression (using + - * / and parentheses, each number used at most
-once) that equals the target. e.g. nums=[3, 7, 9, 50], target=471 -> 9*50 + 3*7.
-
-This module is PURE PYTHON (no torch / GPU) so it can be unit-tested anywhere and
-imported both locally and inside the Colab notebook.
-
-Used by:
-  - reward.py    : the correctness reward calls is_correct() / evaluate_expression()
-  - evaluate.py  : builds held-out problems and checks the model's answers
-  - the notebook : builds the train / eval datasets via build_dataset()
+The game: combine numbers with + - * / (each used at most once) to hit a target.
+Pure Python, no GPU needed — imported by the notebook, reward.py, and evaluate.py.
 """
 
 from __future__ import annotations
@@ -22,15 +13,6 @@ import re
 from collections import Counter
 from typing import Optional
 
-# ---------------------------------------------------------------------------
-# 1. Prompt + required output format
-# ---------------------------------------------------------------------------
-# The model must wrap its thinking in <reasoning>...</reasoning> and its final
-# arithmetic expression in <answer>...</answer>. reward.py grades BOTH:
-#   - format reward      : is that structure present?
-#   - correctness reward : does the <answer> expression actually hit the target?
-# Forcing a fixed shape is what makes "did it reason?" and "did it solve it?"
-# mechanically checkable — the core trick behind GRPO on a reasoning task.
 
 SYSTEM_PROMPT = (
     "You are solving the Countdown numbers game. You are given a list of numbers "
@@ -49,25 +31,18 @@ USER_TEMPLATE = "Numbers: {nums}\nTarget: {target}"
 
 
 def make_prompt(nums: list[int], target: int) -> list[dict]:
-    """Return chat messages for one problem (this is the GRPO 'prompt' column)."""
+    """Return the chat messages for one problem."""
     return [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": USER_TEMPLATE.format(nums=list(nums), target=target)},
     ]
 
 
-# ---------------------------------------------------------------------------
-# 2. Problem generation (guaranteed solvable)
-# ---------------------------------------------------------------------------
 _OPS = ["+", "-", "*", "/"]
 
 
 def _random_expr(values: list[int], rng: random.Random):
-    """Fold a list of ints into one value using random ops.
-
-    Returns (value: float, expr: str) or (None, None) if a division would be
-    non-integer (we keep intermediate divisions clean, classic-Countdown style).
-    """
+    """Fold a list of ints into a value using random ops. Returns (value, expr) or (None, None)."""
     items = [(float(v), str(v)) for v in values]
     while len(items) > 1:
         (av, astr) = items.pop(rng.randrange(len(items)))
@@ -79,7 +54,7 @@ def _random_expr(values: list[int], rng: random.Random):
             cv = av - bv
         elif op == "*":
             cv = av * bv
-        else:  # division must be exact and non-zero
+        else:
             if bv == 0 or abs(av % bv) > 1e-9:
                 return None, None
             cv = av / bv
@@ -95,12 +70,10 @@ def generate_problem(
     rng: Optional[random.Random] = None,
     max_tries: int = 200,
 ) -> dict:
-    """Generate ONE solvable Countdown problem -> {"nums": [...], "target": int}.
+    """Generate one solvable Countdown problem -> {"nums": [...], "target": int}.
 
-    Strategy: pick random numbers, build a random expression over them, and use
-    its value as the target. Because the target is *built from* the numbers, a
-    solution is guaranteed to exist. We keep only positive-integer targets inside
-    [min_target, max_target].
+    Builds a random expression over random numbers and uses the result as the target,
+    so a solution is always guaranteed to exist.
     """
     rng = rng or random
     for _ in range(max_tries):
@@ -110,21 +83,21 @@ def generate_problem(
         value, _expr = _random_expr(order, rng)
         if value is None:
             continue
-        if abs(value - round(value)) < 1e-9:  # clean integer?
+        if abs(value - round(value)) < 1e-9:
             t = int(round(value))
             if min_target <= t <= max_target:
                 return {"nums": nums, "target": t}
-    # Fallback (always solvable): a plain sum, retried until it lands in range.
+    # Fallback: use sum of numbers as target (always solvable)
     for _ in range(max_tries):
         nums = [rng.randint(1, max_number) for _ in range(n_numbers)]
         s = sum(nums)
         if min_target <= s <= max_target:
             return {"nums": nums, "target": s}
-    return {"nums": nums, "target": sum(nums)}  # last resort: still solvable
+    return {"nums": nums, "target": sum(nums)}
 
 
 def problem_key(problem: dict):
-    """Hashable identity of a problem, for de-duplicating / disjoint splits."""
+    """Hashable identity of a problem, for deduplication."""
     return (tuple(sorted(problem["nums"])), problem["target"])
 
 
@@ -135,11 +108,10 @@ def build_dataset(
     seed: int = 0,
     exclude: Optional[set] = None,
 ):
-    """Build a HuggingFace Dataset of n UNIQUE Countdown problems for GRPO.
+    """Build a HuggingFace Dataset of n unique Countdown problems.
 
-    Columns: prompt (chat messages), nums (list[int]), target (int).
-    `exclude` is a set of problem_key()s to skip (use it to keep eval disjoint
-    from train). Imports `datasets` lazily so task.py stays importable without it.
+    Columns: prompt (chat messages), nums, target.
+    Pass exclude=train_keys to keep eval disjoint from training.
     """
     from datasets import Dataset
 
@@ -156,22 +128,17 @@ def build_dataset(
     return Dataset.from_list(rows)
 
 
-# ---------------------------------------------------------------------------
-# 3. Answer extraction + safe checking
-# ---------------------------------------------------------------------------
 _ANSWER_RE = re.compile(r"<answer>\s*(.*?)\s*</answer>", re.DOTALL | re.IGNORECASE)
 
 
 def extract_answer(text: str) -> Optional[str]:
-    """Return the contents of the LAST <answer>...</answer> block, else None."""
+    """Return the last <answer>...</answer> block contents, else None."""
     if not isinstance(text, str):
         return None
     matches = _ANSWER_RE.findall(text)
     return matches[-1].strip() if matches else None
 
 
-# Only these AST node types are allowed — this is how we evaluate the model's
-# expression WITHOUT running arbitrary code (never use eval() on model output).
 _ALLOWED_BINOPS = {ast.Add: operator.add, ast.Sub: operator.sub,
                    ast.Mult: operator.mul, ast.Div: operator.truediv}
 
@@ -193,19 +160,14 @@ def _safe_eval(node):
 
 
 def _numbers_in(expr: str) -> list[int]:
-    """Integer literals appearing in the expression."""
     return [int(tok) for tok in re.findall(r"\d+", expr)]
 
 
 def evaluate_expression(expr: Optional[str], nums: list[int], target: int) -> dict:
-    """Check a candidate Countdown answer expression.
+    """Check a candidate answer expression.
 
-    Returns:
-      valid   - parses and uses only + - * / ( ) and integers
-      value   - the numeric result (or None if invalid)
-      legal   - uses only the given numbers, each at most as many times as given
-      correct - legal AND value == target
-      reason  - short human-readable explanation
+    Returns dict with: valid, value, legal, correct, reason.
+    Uses a safe AST walker instead of eval() so model output can never run arbitrary code.
     """
     bad = {"valid": False, "value": None, "legal": False, "correct": False}
     if not expr or not isinstance(expr, str):
@@ -223,12 +185,11 @@ def evaluate_expression(expr: Optional[str], nums: list[int], target: int) -> di
 
 
 def is_correct(expr: Optional[str], nums: list[int], target: int) -> bool:
-    """True iff `expr` legally combines the given numbers to equal `target`."""
+    """True if expr legally combines the given numbers to equal target."""
     return evaluate_expression(expr, nums, target)["correct"]
 
 
 if __name__ == "__main__":
-    # Tiny demo so `python task.py` shows something useful.
     rng = random.Random(0)
     for _ in range(3):
         p = generate_problem(rng=rng)

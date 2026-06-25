@@ -10,12 +10,12 @@ Named after Descartes: *cogito ergo sum* — the model has to think to get rewar
 
 | Metric (100 held-out Countdown problems) | Base model | After GRPO (250 steps, T4) |
 |---|---|---|
-| **Accuracy (hit the target)** | 0% | 30% |
+| **Accuracy (hit the target)** | 0% | 32% |
 | Format compliance | fails (LaTeX, `=` in expr, gives up) | 100% clean arithmetic expressions |
 | Legal number usage | often uses numbers not in the set | consistently uses only given numbers |
 | Reasoning style | rambles / hallucinates | short, focused search |
 
-During training, the correctness reward spiked to **1.0 at step 135**. Format reward maxed by step 10; partial reward (writing valid expressions) improved ~4× by step 250. The model went from **0% → 30% accuracy** in just 250 steps on a free T4.
+During training, the correctness reward spiked to **1.0 at step 135**. Format reward maxed by step 10; partial reward (writing valid expressions) improved ~4× by step 250. The model went from **0% → 32% accuracy** in just 250 steps on a free T4.
 
 **Model on HF:** [harthik2006/cogito-countdown-grpo](https://huggingface.co/harthik2006/cogito-countdown-grpo)
 

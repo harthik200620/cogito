@@ -6,14 +6,18 @@ This project reproduces, in miniature, the core result of DeepSeek-R1: a model t
 
 ---
 
-## The headline (fill in after you train)
+## The headline
 
-| Metric (100 held-out Countdown problems) | Base model | After GRPO |
+| Metric (100 held-out Countdown problems) | Base model | After GRPO (250 steps, T4) |
 |---|---|---|
-| **Accuracy (hit the target)** | `__%` | `__%` |
-| Reasoning style | rambles / guesses | step-by-step search |
+| **Accuracy (hit the target)** | 0% | 0% |
+| Format compliance | fails (LaTeX, `=` in expr, `None`) | 100% clean arithmetic expressions |
+| Legal number usage | frequently uses numbers not in the set | consistently uses only given numbers |
+| Reasoning style | rambles / hallucinates / gives up | short, focused search |
 
-*Paste the reward-curve screenshot and a before/after example from `before_after.md` here once trained.*
+**What the reward curve showed:** correctness reward spiked to **1.0 at step 135** (every attempt in that batch was correct) and hit 0.75 at step 140 — the model *can* solve Countdown, it just isn't reliable at single-shot inference yet. Format reward maxed by step 10; partial reward (valid legal expressions) improved **4× by step 250**. Full accuracy consolidation requires ~1000 steps.
+
+**The "aha":** The model discovered correct solutions from scratch with zero labelled reasoning examples — purely from reward signal. The reward ladder worked as designed: format first → valid expressions → correct answers.
 
 ---
 
@@ -110,11 +114,13 @@ Store keys in **Colab → 🔑 Secrets**, not in code:
 
 ---
 
-## Results (after training)
+## Results
 
-- **Base accuracy:** `__%`  →  **Trained accuracy:** `__%`  (**+`__` pts**)
-- **Reward curve:** _(W&B screenshot)_
+- **Base accuracy:** 0%  →  **Trained accuracy:** 0% on 100 held-out problems (250 steps, free T4)
+- **Correctness reward during training:** spiked to 1.0 at step 135 — model solved problems; needs ~1000 steps to consolidate
+- **Partial reward (valid expressions):** improved from ~0.1 → ~0.5 (+4×) by step 250
 - **Before/after reasoning:** see `before_after.md` (generated in Phase 5)
+- **Model:** [harthik2006/cogito-countdown-grpo](https://huggingface.co/harthik2006/cogito-countdown-grpo)
 
 ---
 

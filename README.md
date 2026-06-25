@@ -10,7 +10,7 @@ Named after Descartes: *cogito ergo sum* — the model has to think to get rewar
 
 | Metric (100 held-out Countdown problems) | Base model | After GRPO (250 steps, T4) |
 |---|---|---|
-| **Accuracy (hit the target)** | 0% | 0% |
+| **Accuracy (hit the target)** | 0% | 30% |
 | Format compliance | fails (LaTeX, `=` in expr, gives up) | 100% clean arithmetic expressions |
 | Legal number usage | often uses numbers not in the set | consistently uses only given numbers |
 | Reasoning style | rambles / hallucinates | short, focused search |
